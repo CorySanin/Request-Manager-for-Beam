@@ -41,10 +41,14 @@ import javax.swing.event.ListSelectionEvent;
 import java.awt.Font;
 import javax.swing.ListSelectionModel;
 import java.awt.Color;
+import java.awt.Container;
+
 import javax.swing.JSplitPane;
 import javax.swing.JTextPane;
 import javax.swing.Box;
 import javax.swing.JTextArea;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 public class mainform extends JFrame {
 
@@ -54,6 +58,7 @@ public class mainform extends JFrame {
 	private JList listRequests;
 	private DefaultListModel activeRequests;
 	private webserver web;
+	private Thread wsThread;
 	private JLabel lblPasswordrequired;
 	private JTextArea txtPromo;
 	private Box horizontalBox;
@@ -91,6 +96,92 @@ public class mainform extends JFrame {
         }
 	}
 	
+	private boolean connectToBeam(JButton btnConnect)
+	{
+		/**
+		 * Connect to Beam with provided username and password.
+		 */
+		BeamAPI beam = new BeamAPI();
+        try {
+        	//open appdata file
+        	btnConnect.setEnabled(false);
+        	
+        	File f = new File("default.ini");
+        	boolean notauto = (!f.exists() || f.isDirectory());
+        	String username = null;
+        	String chanID = null;
+        	JFileChooser chooser = new JFileChooser();
+        	if(notauto) {
+	            chooser.setCurrentDirectory(new java.io.File("."));
+	            chooser.setSelectedFile(new File(""));
+	            chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+	            FileNameExtensionFilter defaultext = new FileNameExtensionFilter("Application Data (.ini)","ini");
+	            chooser.addChoosableFileFilter(new FileNameExtensionFilter("Text Document (.txt)","txt"));
+	            chooser.setFileFilter(defaultext);
+        	}
+            if (!notauto || chooser.showOpenDialog(contentPane.getParent()) == JFileChooser.OPEN_DIALOG) {
+            	if(notauto)
+            		f = chooser.getSelectedFile();
+            	FileInputStream fstream = new FileInputStream(f);
+            	DataInputStream in = new DataInputStream(fstream);
+            	BufferedReader br = new BufferedReader(new InputStreamReader(in));
+            	String strLine;
+            	while ((strLine = br.readLine()) != null){
+            		if(strLine.length() > 0 && strLine.toCharArray()[0] != '#')
+            			if(username == null)
+            				username = strLine;
+            			else if(chanID == null)
+            				chanID = strLine;
+            			else
+            				requests.add(strLine);
+            	}
+            	
+            	//connect to Beam
+            	Robot controller = new Robot();
+	            pro.beam.interactive.robot.Robot robot = new RobotBuilder()
+	                    .username(username)
+	                    .password(new String(txtPassword.getPassword()))
+	                    .channel(Integer.parseInt(chanID)).build(beam).get();
+
+	            robot.on(Protocol.Report.class, report -> {
+	            	int check = report.getTactileCount();
+	            	if(check > 0)
+	            	{
+	            		List<TactileInfo> l = report.getTactileList();
+	            		for(int i=0;i<check;i++)
+	            		{
+	            			for(int t=0;t<l.get(i).getPressFrequency();t++)
+	            			{
+	            				System.out.println(l.get(i).getId());
+	            				if(l.get(i).getId() < requests.size())
+	            				{
+	            					activeRequests.addElement(requests.get(l.get(i).getId()));
+	            					listRequests.setSelectedIndex(0);
+	            				}
+	            			}
+	            		}
+	            	}
+	            });
+	            wsThread.start();
+	            return true;
+            } else {
+                return false;
+            }
+        } catch (InterruptedException | ExecutionException | AWTException | IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        finally{
+        	btnConnect.setEnabled(true);
+		}
+	}
+	
+	private void hideAndRemove(Container cont, JComponent comp)
+	{
+		comp.setVisible(false);
+		cont.remove(comp);
+	}
+	
 	/**
 	 * Create the frame.
 	 * @throws AWTException 
@@ -104,13 +195,14 @@ public class mainform extends JFrame {
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		contentPane.setLayout(new BorderLayout(0, 0));
 		setContentPane(contentPane);
+		JButton btnConnect = new JButton("Connect");
 		
 		requests = new ArrayList<String>(64);
 		
 		
 		activeRequests = new DefaultListModel();
 		web = new webserver(activeRequests);
-		Thread t = new Thread(web);
+		wsThread = new Thread(web);
 		
 		JPanel pnlConnect = new JPanel();
 		pnlConnect.setBackground(Color.WHITE);
@@ -120,11 +212,34 @@ public class mainform extends JFrame {
 		pnlConnect.add(lblPasswordrequired);
 		
 		txtPassword = new JPasswordField();
+		txtPassword.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyReleased(KeyEvent arg0) {
+				if(arg0.getKeyCode() == arg0.VK_ENTER && txtPassword.isVisible() && txtPassword.isFocusOwner())
+				{
+					if(connectToBeam(btnConnect))
+					{
+						hideAndRemove(contentPane,pnlConnect);
+						hideAndRemove(contentPane,txtPromo);
+						hideAndRemove(contentPane,pnlPromoBtns);
+					}
+				}
+			}
+		});
 		txtPassword.setToolTipText("Password");
 		txtPassword.setColumns(10);
 		pnlConnect.add(txtPassword);
 		
 		listRequests = new JList(activeRequests);
+		listRequests.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyReleased(KeyEvent arg0) {
+				if(arg0.getKeyCode() == arg0.VK_ENTER && activeRequests.size() > 0)
+				{
+					activeRequests.remove(0);
+				}
+			}
+		});
 		DefaultListCellRenderer renderer =  (DefaultListCellRenderer)listRequests.getCellRenderer();  
 		renderer.setHorizontalAlignment(JLabel.RIGHT);
 		listRequests.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -151,89 +266,14 @@ public class mainform extends JFrame {
 		contentPane.add(txtPromo, BorderLayout.WEST);
 		
 		//Open file and connect
-		JButton btnConnect = new JButton("Connect");
 		btnConnect.addActionListener(new ActionListener() {
-			/**
-			 * Connect to Beam with provided username and password.
-			 */
 			public void actionPerformed(ActionEvent arg0) {
-				BeamAPI beam = new BeamAPI();
-		        try {
-		        	//open appdata file
-		        	btnConnect.setEnabled(false);
-		        	
-		        	File f = new File("default.ini");
-		        	boolean notauto = (!f.exists() || f.isDirectory());
-		        	String username = null;
-		        	String chanID = null;
-		        	JFileChooser chooser = new JFileChooser();
-		        	if(notauto) {
-			            chooser.setCurrentDirectory(new java.io.File("."));
-			            chooser.setSelectedFile(new File(""));
-			            chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-			            FileNameExtensionFilter defaultext = new FileNameExtensionFilter("Application Data (.ini)","ini");
-			            chooser.addChoosableFileFilter(new FileNameExtensionFilter("Text Document (.txt)","txt"));
-			            chooser.setFileFilter(defaultext);
-		        	}
-		            if (!notauto || chooser.showOpenDialog(contentPane.getParent()) == JFileChooser.OPEN_DIALOG) {
-		            	if(notauto)
-		            		f = chooser.getSelectedFile();
-		            	FileInputStream fstream = new FileInputStream(f);
-		            	DataInputStream in = new DataInputStream(fstream);
-		            	BufferedReader br = new BufferedReader(new InputStreamReader(in));
-		            	String strLine;
-		            	while ((strLine = br.readLine()) != null){
-		            		if(strLine.length() > 0 && strLine.toCharArray()[0] != '#')
-		            			if(username == null)
-		            				username = strLine;
-		            			else if(chanID == null)
-		            				chanID = strLine;
-		            			else
-		            				requests.add(strLine);
-		            	}
-		            	
-		            	//connect to Beam
-		            	Robot controller = new Robot();
-			            pro.beam.interactive.robot.Robot robot = new RobotBuilder()
-			                    .username(username)
-			                    .password(new String(txtPassword.getPassword()))
-			                    .channel(Integer.parseInt(chanID)).build(beam).get();
-
-			            robot.on(Protocol.Report.class, report -> {
-			            	int check = report.getTactileCount();
-			            	if(check > 0)
-			            	{
-			            		List<TactileInfo> l = report.getTactileList();
-			            		for(int i=0;i<check;i++)
-			            		{
-			            			for(int t=0;t<l.get(i).getPressFrequency();t++)
-			            			{
-			            				System.out.println(l.get(i).getId());
-			            				if(l.get(i).getId() < requests.size())
-			            				{
-			            					activeRequests.addElement(requests.get(l.get(i).getId()));
-			            					listRequests.setSelectedIndex(0);
-			            				}
-			            			}
-			            		}
-			            	}
-			            });
-			            pnlConnect.setVisible(false);
-			            txtPromo.setVisible(false);
-			            pnlPromoBtns.setVisible(false);
-			            contentPane.remove(pnlConnect);
-			            contentPane.remove(txtPromo);
-			            contentPane.remove(pnlPromoBtns);
-			            t.start();
-		            } else {
-		                // do when cancel
-		            }
-		        } catch (InterruptedException | ExecutionException | AWTException | IOException e) {
-		            e.printStackTrace();
-		        }
-		        finally{
-		        	btnConnect.setEnabled(true);
-		        }
+				if(connectToBeam(btnConnect))
+				{
+					hideAndRemove(contentPane,pnlConnect);
+					hideAndRemove(contentPane,txtPromo);
+					hideAndRemove(contentPane,pnlPromoBtns);
+				}
 			}
 		});
 		pnlConnect.add(btnConnect);
@@ -257,10 +297,6 @@ public class mainform extends JFrame {
 			}
 		});
 		pnlPromoBtns.add(btnDonate);
-		
-		
-		
-		
 	}
 
 }
