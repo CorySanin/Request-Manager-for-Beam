@@ -259,6 +259,7 @@ public class mainform extends JFrame {
 		contentPane.add(listRequests, BorderLayout.CENTER);
 		
 		txtPromo = new JTextArea();
+		txtPromo.setEditable(false);
 		txtPromo.setFont(new Font("SansSerif", Font.PLAIN, 13));
 		txtPromo.setWrapStyleWord(true);
 		txtPromo.setText("Request Manager by CoryZ40 from GitHub (AKA WhoIsWORM)\nFollow me on Twitter @CoryZ40\n"
