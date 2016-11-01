@@ -132,6 +132,17 @@ public class HTTP
   				 +"xhttp.open(\"GET\", \"removeone?id=\"+d.getTime(), true);"
 				 +"xhttp.send();"
 				 +"}"
+				 + "function removebottom() {"
+    	         + "var d = new Date();"
+	         	 +"var xhttp = new XMLHttpRequest();"
+    	      	 +"xhttp.onreadystatechange = function() {"
+	  			 +"if (this.readyState == 4 && this.status == 200) {"
+    			 +"d = new Date();"
+     			 +"}"
+				 +"};"
+  				 +"xhttp.open(\"GET\", \"removebottom?id=\"+d.getTime(), true);"
+				 +"xhttp.send();"
+				 +"}"
     	         + "</script>"
     	         + "<style>"
     	         + "body{background-color:#1A237E;text-align:center;padding-top:100px;}"
@@ -141,7 +152,8 @@ public class HTTP
     	         + "</style>"
     	         + "</head>"
     	         + "<body>\n"
-    	         + "<button onclick=\"removeone()\">Remove One</button>\n"
+    	         + "<button onclick=\"removeone()\">Remove One</button><br/><br/>"
+    	         + "<button onclick=\"removebottom()\" title=\"from bottom of the list\">Remove Bottom</button>\n"
     	         + "</body></html>\r\n");
     	      return false;
     	 }
@@ -149,6 +161,16 @@ public class HTTP
     	 {
     		 if(activeRequests.size() > 0)
     			 activeRequests.remove(0);
+    		 httpOutput.writeBytes(statusLine(200,"OK"));
+  			 httpOutput.writeBytes(contentType("./index.html"));
+  			 httpOutput.writeBytes(CRLF);
+  			 httpOutput.writeBytes("\r\n");
+  			 return false;
+    	 }
+    	 else if(reqFileName.startsWith("./removebottom?id="))
+    	 {
+    		 if(activeRequests.size() > 0)
+    			 activeRequests.remove(activeRequests.size()-1);
     		 httpOutput.writeBytes(statusLine(200,"OK"));
   			 httpOutput.writeBytes(contentType("./index.html"));
   			 httpOutput.writeBytes(CRLF);

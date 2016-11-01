@@ -15,7 +15,6 @@ import pro.beam.api.BeamAPI;
 import pro.beam.interactive.net.packet.Protocol;
 import pro.beam.interactive.net.packet.Protocol.Report.TactileInfo;
 import pro.beam.interactive.robot.RobotBuilder;
-import javax.swing.JTextField;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -26,29 +25,29 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.awt.event.ActionEvent;
 import javax.swing.JList;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
 import javax.swing.event.ListSelectionEvent;
 import java.awt.Font;
+import java.awt.Image;
+
 import javax.swing.ListSelectionModel;
 import java.awt.Color;
 import java.awt.Container;
 
-import javax.swing.JSplitPane;
-import javax.swing.JTextPane;
 import javax.swing.Box;
 import javax.swing.JTextArea;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.Toolkit;
 
 public class mainform extends JFrame {
 
@@ -61,10 +60,11 @@ public class mainform extends JFrame {
 	private Thread wsThread;
 	private JLabel lblPasswordrequired;
 	private JTextArea txtPromo;
-	private Box horizontalBox;
+	//private Box horizontalBox;
 	private JPanel pnlPromoBtns;
 	private JButton btnViewOnGithub;
 	private JButton btnDonate;
+	private int oldFirst = -1;
 
 	/**
 	 * Launch the application.
@@ -82,6 +82,10 @@ public class mainform extends JFrame {
 		});
 	}
 
+	/**
+	 * Open a URL in browser. Used to open GitHub and donation link.
+	 * @param url
+	 */
 	private void goToURL(String url)
 	{
 		java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
@@ -96,6 +100,11 @@ public class mainform extends JFrame {
         }
 	}
 	
+	/**
+	 * Connects to beam
+	 * @param btnConnect the button to disable/enable
+	 * @return whether or not it was successful
+	 */
 	private boolean connectToBeam(JButton btnConnect)
 	{
 		/**
@@ -132,6 +141,13 @@ public class mainform extends JFrame {
             				username = strLine;
             			else if(chanID == null)
             				chanID = strLine;
+            			else if(oldFirst == -1)
+            			{
+            				if(strLine.equals("0"))
+            					oldFirst = 0;
+            				else
+            					oldFirst = 1;
+            			}
             			else
             				requests.add(strLine);
             	}
@@ -143,6 +159,7 @@ public class mainform extends JFrame {
 	                    .password(new String(txtPassword.getPassword()))
 	                    .channel(Integer.parseInt(chanID)).build(beam).get();
 
+	            //what to do when one or several buttons are pushed
 	            robot.on(Protocol.Report.class, report -> {
 	            	int check = report.getTactileCount();
 	            	if(check > 0)
@@ -155,7 +172,10 @@ public class mainform extends JFrame {
 	            				System.out.println(l.get(i).getId());
 	            				if(l.get(i).getId() < requests.size())
 	            				{
-	            					activeRequests.addElement(requests.get(l.get(i).getId()));
+	            					if(oldFirst == 1)
+	            						activeRequests.addElement(requests.get(l.get(i).getId()));
+	            					else
+	            						activeRequests.add(0,requests.get(l.get(i).getId()));
 	            					listRequests.setSelectedIndex(0);
 	            				}
 	            			}
@@ -176,6 +196,11 @@ public class mainform extends JFrame {
 		}
 	}
 	
+	/**
+	 * Remove elements from the form
+	 * @param cont The containter holding the element
+	 * @param comp the component to remove
+	 */
 	private void hideAndRemove(Container cont, JComponent comp)
 	{
 		comp.setVisible(false);
@@ -187,6 +212,26 @@ public class mainform extends JFrame {
 	 * @throws AWTException 
 	 */
 	public mainform() throws AWTException {
+		//Set IconImages
+		//Dirty way of doing it, but it works
+		URL url;
+		Toolkit kit = Toolkit.getDefaultToolkit();
+		ArrayList<Image> imageList = new ArrayList<Image>();
+		url = ClassLoader.getSystemResource("resources/128.png");
+		Image img = kit.createImage(url);
+		imageList.add(img);
+		url = ClassLoader.getSystemResource("resources/64.png");
+		img = kit.createImage(url);
+	    imageList.add(img);
+	    url = ClassLoader.getSystemResource("resources/32.png");
+		img = kit.createImage(url);
+	    imageList.add(img);
+	    url = ClassLoader.getSystemResource("resources/16.png");
+		img = kit.createImage(url);
+	    imageList.add(img);
+	    
+		setIconImages(imageList);
+		
 		setTitle("Request Manager");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 400, 424);
