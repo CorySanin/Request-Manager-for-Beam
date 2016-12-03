@@ -5,4 +5,6 @@ Request Manager is a simple Java application that can keep track of every button
 
 Want to see it in action? [Check out my video](https://youtu.be/rcsz2sCtgdU?t=540).
 
-If you like my software, contributed to it on GitHub. I also wouldn't mind if you could [donate](http://paypal.me/Heckie) 
+If you like my software, contributed to it on GitHub. I also wouldn't mind if you could [donate](http://paypal.me/Heckie) maybe.
+
+Chat with me on [Discord](https://discord.gg/D3tTjQ4)
